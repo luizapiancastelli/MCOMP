@@ -481,8 +481,9 @@ exchange_delta = function(index, combs, Y, lambda_current, nu_current, omega_cur
   }
   
   #Priors
-  prior_current = dnorm(delta_current[1,2], mean = 0, sd = prior_delta$sd, log = TRUE)
-  prior_prime = dnorm(delta_prime[1,2], mean = 0, sd = prior_delta$sd, log = TRUE)
+  limits = delta_limits_cpp(ratios[c(i,j)])
+  prior_current = log(dtruncnorm(delta_current[i,j], mean = 0, sd = prior_delta$sd, a = limits[1], b = limits[2]))
+  prior_prime = log(dtruncnorm(delta_prime[i,j], mean = 0, sd = prior_delta$sd, a = limits[1], b = limits[2]))
   
   Y_exchange =  un_loglik_given(1, Y, lambda_current, nu_current, delta_prime, omega_current, ratios)$kernel/ 
     un_loglik_given(1, Y, lambda_current, nu_current, delta_current, omega_current, ratios)$kernel 
