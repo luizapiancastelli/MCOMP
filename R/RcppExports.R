@@ -57,6 +57,10 @@ loglik_reg_given <- function(Y, X, gamma, nu, delta, omega, ratios, log_inv_z) {
     .Call(`_multcp_loglik_reg_given`, Y, X, gamma, nu, delta, omega, ratios, log_inv_z)
 }
 
+kernel <- function(Y, ratios, omega, delta) {
+    .Call(`_multcp_kernel`, Y, ratios, omega, delta)
+}
+
 rmcomp_T <- function(n, lambda, nu, delta, omega, N_r, max_it = 1000L, tol = 0.001) {
     .Call(`_multcp_rmcomp_T`, n, lambda, nu, delta, omega, N_r, max_it, tol)
 }

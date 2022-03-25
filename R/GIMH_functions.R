@@ -1,3 +1,23 @@
+loglik_marginal_kernel = function(Y, lambda_current, nu_current, delta_current, omega_current, N_aux_z, N_aux_r){
+  
+  n = nrow(Y)
+  D = length(lambda_current)
+  
+  ratios = ratios_IS_cpp(lambda_current, nu_current, omega_current, N_aux_r)$ratios;
+  log_kernel = numeric(n)
+  ll_marginal = matrix(NA, ncol = D, nrow = n)
+  
+  loginvZ = est_logZinv_cpp(lambda_current, nu_current, N_aux_z)
+  
+  for(i in 1:n){
+    log_kernel[i] = log(kernel(Y[i,], ratios, omega_current, delta_current))
+    for(d in 1:D){
+      ll_marginal[i,d] = Y[i,d]*log(lambda_current[d]) - nu_current[d]*lfactorial(Y[i,d]) + loginvZ$loginvZ[d]
+    }
+  }
+  return(list("marginal" = colSums(ll_marginal),
+              "kernel" = sum(log_kernel)))
+}
 
 #Gamma prior
 update_omega = function(Y, lambda_current, nu_current, delta_current, omega_current, sigma_omega, ratios, log_inv_z, draws_r, prior_omega){
@@ -431,26 +451,26 @@ GIMH_wrapper = function(Y, burn_in, n_iter, N_aux_r, N_aux_z, initialise, priors
   
   # Nz ------------------------------------------------------------------------
   
-  if(class(N_aux_z)=='list'){   #Run adaptation if the list is supplied
-    target_sd =N_aux_z$target_sd
-    N_aux_z = N_aux_z$init
-    cur_sd = 99; 
-    while(cur_sd > target_sd){
-      
-      loglik_vec = replicate(100, estimate_loglik(Y, lambda_current, nu_current, delta_current, omega_current, N_aux_z, N_aux_r))
-      cur_sd = sd(loglik_vec)
-      
-      cat('"Running Adaptation of Nz: -----',"\n",
-          "Current loglik sd:", round(cur_sd,3),"\n",
-          "Target loglik sd:", target_sd, "\n",
-          "Nz:", N_aux_z, '\n',
+  target_sd =N_aux_z$target_sd
+  N_aux_z = N_aux_z$init
+  cur_sd = 99; 
+  while(cur_sd > target_sd){
+    reps = replicate(100, loglik_marginal_kernel(Y, lambda_current, nu_current, delta_current, omega_current, N_aux_z, N_aux_r),
+                     simplify = FALSE)
+    
+    reps_marginal = do.call(rbind, lapply(reps, "[[", "marginal"))
+    reps_kernel = do.call(rbind, lapply(reps, "[[", "kernel"))
+    cur_sd = max(apply(reps_marginal, 2, sd)) + sd(reps_kernel)
+    
+    cat('"Running Adaptation of Nz: -----',"\n",
+        "Current loglik sd:", round(cur_sd,3),"\n",
+        "Target loglik sd:", target_sd, "\n",
+        "Nz:", N_aux_z, '\n',
         "------------------------------", "\n")
-      
-      adapt = cur_sd/target_sd
-      N_aux_z = ifelse(adapt > 1,  ceiling(adapt*N_aux_z), N_aux_z)
-    }
-  }else{
-    N_aux_z= N_aux_z
+    
+    adapt = cur_sd/target_sd
+    N_aux_z = ifelse(adapt > 1,  ceiling(adapt*N_aux_z), N_aux_z)
+    
   }
   
   cat('Auxiliary draws: --------------------', '\n',
@@ -537,6 +557,7 @@ GIMH_wrapper = function(Y, burn_in, n_iter, N_aux_r, N_aux_z, initialise, priors
     
     maxloglik = max(max_ll, sum(loglik_chain[iter,]))
     iter = iter +1
+    write.table(paste("Iteration:", iter), file = 'GIMH_progress.txt')
     
     if(iter %% 100==0){
        cat("ITERATION:", iter, "----------------------------", "\n",
@@ -624,28 +645,28 @@ GIMH_wrapper2 = function(Y, burn_in, n_iter, N_aux_r, N_aux_z, initialise, prior
       'delta', c(delta_current[upper.tri(delta_current)]), '\n',
       '----------------------------------', '\n')
   
-  # Nz ------------------------------------------------------------------------
+  # Nz -----------------------------------------------------------------------
   
-  if(class(N_aux_z)=='list'){   #Run adaptation if the list is supplied
-    target_sd =N_aux_z$target_sd
-    N_aux_z = N_aux_z$init
-    cur_sd = 99; 
-    while(cur_sd > target_sd){
-      
-      loglik_vec = replicate(100, estimate_loglik(Y, lambda_current, nu_current, delta_current, omega_current, N_aux_z, N_aux_r))
-      cur_sd = sd(loglik_vec)
-      
-      cat('"Running Adaptation of Nz: -----',"\n",
-          "Current loglik sd:", round(cur_sd,3),"\n",
-          "Target loglik sd:", target_sd, "\n",
-          "Nz:", N_aux_z, '\n',
-          "------------------------------", "\n")
-      
-      adapt = cur_sd/target_sd
-      N_aux_z = ifelse(adapt > 1,  ceiling(adapt*N_aux_z), N_aux_z)
-    }
-  }else{
-    N_aux_z= N_aux_z
+  target_sd =N_aux_z$target_sd
+  N_aux_z = N_aux_z$init
+  cur_sd = 99; 
+  while(cur_sd > target_sd){
+    reps = replicate(100, loglik_marginal_kernel(Y, lambda_current, nu_current, delta_current, omega_current, N_aux_z, N_aux_r),
+                     simplify = FALSE)
+    
+    reps_marginal = do.call(rbind, lapply(reps, "[[", "marginal"))
+    reps_kernel = do.call(rbind, lapply(reps, "[[", "kernel"))
+    cur_sd = max(apply(reps_marginal, 2, sd)) + sd(reps_kernel)
+    
+    cat('"Running Adaptation of Nz: -----',"\n",
+        "Current loglik sd:", round(cur_sd,3),"\n",
+        "Target loglik sd:", target_sd, "\n",
+        "Nz:", N_aux_z, '\n',
+        "------------------------------", "\n")
+    
+    adapt = cur_sd/target_sd
+    N_aux_z = ifelse(adapt > 1,  ceiling(adapt*N_aux_z), N_aux_z)
+    
   }
   
   cat('Auxiliary draws: --------------------', '\n',
@@ -732,6 +753,7 @@ GIMH_wrapper2 = function(Y, burn_in, n_iter, N_aux_r, N_aux_z, initialise, prior
     
     maxloglik = max(max_ll, sum(loglik_chain[iter,]))
     iter = iter +1
+    write.table(paste("Iteration:", iter), file = 'GIMH_progress.txt')
     
     if(iter %% 100==0){
       cat("ITERATION:", iter, "----------------------------", "\n",
@@ -833,3 +855,8 @@ GIMH = function(Y, burn_in, n_iter, N_aux_r, N_aux_z, priors_list, initialise = 
   return(mcmc)
   
 }
+
+
+
+
+

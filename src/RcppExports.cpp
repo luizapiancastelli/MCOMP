@@ -206,6 +206,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// kernel
+double kernel(NumericVector Y, NumericVector ratios, double omega, NumericMatrix delta);
+RcppExport SEXP _multcp_kernel(SEXP YSEXP, SEXP ratiosSEXP, SEXP omegaSEXP, SEXP deltaSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type ratios(ratiosSEXP);
+    Rcpp::traits::input_parameter< double >::type omega(omegaSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type delta(deltaSEXP);
+    rcpp_result_gen = Rcpp::wrap(kernel(Y, ratios, omega, delta));
+    return rcpp_result_gen;
+END_RCPP
+}
 // rmcomp_T
 NumericMatrix rmcomp_T(int n, NumericVector lambda, NumericVector nu, NumericMatrix delta, double omega, int N_r, int max_it, double tol);
 RcppExport SEXP _multcp_rmcomp_T(SEXP nSEXP, SEXP lambdaSEXP, SEXP nuSEXP, SEXP deltaSEXP, SEXP omegaSEXP, SEXP N_rSEXP, SEXP max_itSEXP, SEXP tolSEXP) {
@@ -291,6 +305,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_multcp_estimate_loglik", (DL_FUNC) &_multcp_estimate_loglik, 7},
     {"_multcp_loglik_given_est", (DL_FUNC) &_multcp_loglik_given_est, 7},
     {"_multcp_loglik_reg_given", (DL_FUNC) &_multcp_loglik_reg_given, 8},
+    {"_multcp_kernel", (DL_FUNC) &_multcp_kernel, 4},
     {"_multcp_rmcomp_T", (DL_FUNC) &_multcp_rmcomp_T, 8},
     {"_multcp_rmcomp_T_given", (DL_FUNC) &_multcp_rmcomp_T_given, 7},
     {"_multcp_un_loglik_given", (DL_FUNC) &_multcp_un_loglik_given, 7},

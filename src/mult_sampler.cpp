@@ -38,12 +38,13 @@ double kernel_one_obs(int i_R, NumericMatrix Y, NumericVector ratios, double ome
 
 
 NumericVector CP_unnorm_lpdf(double Y, double mu, double nu){
-  
+
   NumericVector Y_(1);
   Y_[0] = Y;
   NumericVector f1 = nu*(Y*log(mu) - log(factorial(Y_)));
   return(f1);
 }
+
 
 double lpdf_marginals_i(NumericVector Y, NumericVector lambda, NumericVector nu){
   
@@ -135,6 +136,8 @@ arma::vec loglik_given_est(NumericMatrix Y, NumericVector lambda, NumericVector 
   arma::vec output = log_kernel_by_obs + marginal_by_obs;
   return output;
 }
+
+
 
 // [[Rcpp::export]]
 List loglik_reg_given(NumericMatrix Y, NumericVector X, NumericVector gamma, NumericVector nu, NumericMatrix delta, double omega, NumericVector ratios, NumericVector log_inv_z){
@@ -242,6 +245,7 @@ List loglik_reg_est(NumericMatrix Y, NumericVector X, NumericVector gamma, Numer
 }
 
 
+// [[Rcpp::export]]
 double kernel(NumericVector Y, NumericVector ratios, double omega, NumericMatrix delta){
   
   int d = Y.length();
@@ -374,8 +378,6 @@ NumericVector rmcomp_1_T(NumericVector lambda, NumericVector nu, NumericMatrix d
   }
   return Y;
 }
-
-
 
 
 // [[Rcpp::export]]
