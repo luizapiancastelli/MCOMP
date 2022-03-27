@@ -327,8 +327,8 @@ exchange_nu_reg = function(dim, Y, X, gamma_current, nu_current, omega_current, 
   }
   
   #Priors
-  prior_current =  dgamma(nu_current[dim],shape = prior_nu$shape, rate = prior_nu$rate,log = TRUE)
-  prior_prime =  dgamma(nu_prime[dim], prior_nu$shape, rate = prior_nu$rate,log = TRUE)
+  prior_current = log( dtruncnorm(nu_current[dim], mean =0, a =0, sd = prior_nu$sd) )
+  prior_prime = log( dtruncnorm(nu_prime[dim], mean =0, a =0, sd = prior_nu$sd) )
   
   num = exchange_cpp(Y, X, gamma_current, nu_prime, delta_current, omega_current, ratios_prime)[[paste0("q_nu",dim)]] + #{q(Y|prime)}
     exchange_cpp(Y_prime, X, gamma_current, nu_current, delta_current, omega_current, ratios)[[paste0("q_nu",dim)]] +    #{q(Y_prime|current)}
@@ -410,13 +410,13 @@ exchange_omega_reg = function(Y, X, gamma_current, nu_current, omega_current, de
   }
   
   #Priors
-  prior_current = dgamma(omega_current, shape = prior_omega$shape, rate = prior_omega$rate, log = T)
-  prior_prime = dgamma(omega_prime, shape = prior_omega$shape, rate = prior_omega$rate, log = T)
+  prior_current = log( dtruncnorm(omega_current, mean =0, a =0, sd = prior_omega$sd) )
+  prior_prime = log( dtruncnorm(omega_prime, mean =0, a =0, sd = prior_omega$sd) )
   
   t1 = exchange_cpp(Y, X, gamma_current, nu_current, delta_current, omega_prime, ratios_prime)$kernel/exchange_cpp(Y, X, gamma_current, nu_current, delta_current, omega_current, ratios)$kernel    #{q(Y|prime)}/{q(Y_prime|current)}
   t2 = exchange_cpp(Y_prime, X, gamma_current, nu_current, delta_current, omega_current, ratios)$kernel/exchange_cpp(Y_prime, X, gamma_current, nu_current, delta_current, omega_prime, ratios_prime)$kernel    #{q(Y|prime)}/{q(Y_prime|current)}
   
-  alpha = (t1*t2)*exp(q_ratio)
+  alpha = (t1*t2)*exp(q_ratio)*exp(prior_prime- prior_current)
   alpha = min(c(1, alpha))
   
   if(runif(1) < alpha){
@@ -435,7 +435,7 @@ exchange_omega_reg = function(Y, X, gamma_current, nu_current, omega_current, de
   
 }
 
-exchange_delta_reg = function(Y, X, gamma_current, nu_current, omega_current, delta_current, ratios, draws_r, sigma_delta, Y_aux_list, tol, prior_delta){
+exchange_delta_reg = function(Y, X, gamma_current, nu_current, omega_current, delta_current, ratios, draws_r, sigma_delta, Y_aux_list, tol){
   
   parameters = list('gamma' = gamma_current,
                     'nu' = nu_current,
@@ -472,10 +472,6 @@ exchange_delta_reg = function(Y, X, gamma_current, nu_current, omega_current, de
     check = check_pmf_reg(parameters, ratios, data = list("Y" = Y_prime, "X" = X))
   }
   
-  #Priors
-  prior_current = dnorm(delta_current[1,2], mean = 0, sd = prior_delta$sd, log = TRUE)
-  prior_prime = dnorm(delta_prime[1,2], mean = 0, sd = prior_delta$sd, log = TRUE)
-  
   t1 = exchange_cpp(Y, X, gamma_current, nu_current, delta_prime, omega_current, ratios)$kernel/exchange_cpp(Y, X, gamma_current, nu_current, delta_current, omega_current, ratios)$kernel    #{q(Y|prime)}/{q(Y_prime|current)}
   t2 = exchange_cpp(Y_prime, X, gamma_current, nu_current, delta_current, omega_current, ratios)$kernel/exchange_cpp(Y_prime, X, gamma_current, nu_current, delta_prime, omega_current, ratios)$kernel    #{q(Y|prime)}/{q(Y_prime|current)}
   
@@ -496,7 +492,7 @@ exchange_delta_reg = function(Y, X, gamma_current, nu_current, omega_current, de
   
 }
 
-Exchange_regression = function(burn_in, n_iter, initialise, Y, X, N_aux_r, priors_list, tol =0.001){
+Exchange_regression_wrapper = function(burn_in, n_iter, initialise, Y, X, N_aux_r, priors_list, tol){
   
   n = nrow(Y); d = ncol(Y);
   
@@ -699,4 +695,38 @@ Exchange_regression = function(burn_in, n_iter, initialise, Y, X, N_aux_r, prior
                 "omega_chain" = omega_chain[(burn_in+1):total_iter],
                 "delta_chain" = delta_chain[(burn_in+1):total_iter])
   return(output)
+}
+
+
+Exchange_regression = function(burn_in, n_iter, initialise, Y, X, N_aux_r, priors_list, tol =0.001, chains =1, ncores = 5){
+  
+  if(chains == 1){
+    start = Sys.time()
+    run = Exchange_regression_wrapper(burn_in, n_iter, initialise, Y, X, N_aux_r, priors_list, tol)
+    end = Sys.time()
+    timing = end-start
+    chains = list(run)
+    
+  } else if(chains >1){
+    
+    start = Sys.time()
+    cl = parallel::makeCluster(ncores, setup_strategy = "sequential")
+    parallel::clusterEvalQ(cl, library("multcp"))
+    parallel::clusterEvalQ(cl, library("truncnorm"))
+    parallel::clusterEvalQ(cl, library("COMPoissonReg"))
+    parallel::clusterEvalQ(cl, library("mvtnorm"))
+    
+    chains = parallel::parSapply(cl, 1:chains, 
+                                 function(times, burn_in, n_iter, initialise, Y, X, N_aux_r, priors_list, tol){
+                                   Exchange_regression_wrapper(burn_in, n_iter, initialise, Y, X, N_aux_r, priors_list, tol)
+                                 },burn_in, n_iter, initialise, Y, X, N_aux_r, priors_list, tol,simplify = F)
+    
+    parallel::stopCluster(cl) 
+    end = Sys.time()
+    timing = end-start
+  }
+  
+  mcmc = list("mcmc" = chains,"time" = timing)
+  return(mcmc)
+  
 }

@@ -162,7 +162,181 @@ Exchange_wrapper = function(n_iter, burn_in, Y, N_aux_r, initialise, priors_list
     omega_chain[iter] = omega_current
     
     iter = iter +1
+    write.table(paste("Iteration:", iter), file = 'Exchange_progress.txt')
 
+    if(iter %% 100==0){
+      
+      cat("ITERATION:", iter, "----------------------------", "\n")
+      
+      cat("Lambda report  --------------------------------:","\n",
+          "Accepted lambda", round(accept_lambda/iter,3),"\n",
+          "Current lambda:", round(lambda_current,3), "\n",
+          
+          "Nu report ---------------------------------------:","\n",
+          "Accepted nu", round(accept_nu/iter,3),"\n",
+          "Current nu", round(nu_current,3),"\n",
+          
+          "KERNEL --------------------------------------------:","\n",
+          "Omega accepted", round(accept_omega/iter,3),"\n",
+          "Current omega:", round(omega_current,3), "\n",
+          "Sigma omega:", round(sigma_omega,3), "\n",
+          
+          "Delta accepted",  round(accept_delta/iter,3),"\n",
+          "Current delta:", round(delta_current[1,2],3), "\n",
+          
+          "-------------------------------------------------------","\n",
+          "-------------------------------------------------------")
+    }
+    
+  }
+  end_time = Sys.time();
+  
+  # Return arguments --------------------------------------------------------------------
+  total_iter = burn_in + n_iter
+  output = list('ac_rates' = list('lambda' = accept_lambda/total_iter,
+                                  'nu' = accept_nu/total_iter,
+                                  'omega' = accept_omega/total_iter,
+                                  'delta' = accept_delta/total_iter),
+                "time" = end_time-start_time,
+                "Nr" = N_aux_r, "initial_values" = inits,
+                'proposal_parameters' = list("lambda" = sigma_lambda,
+                                             'nu' = sigma_nu,
+                                             "omega" = sigma_omega,
+                                             "delta" = sigma_delta),
+                "lambda_chain" = lambda_chain[(burn_in+1):total_iter, ],
+                "nu_chain" = nu_chain[(burn_in+1):total_iter, ],
+                "omega_chain" = omega_chain[(burn_in+1):total_iter],
+                "delta_chain" = delta_chain[(burn_in+1):total_iter])
+  return(output)
+}
+
+Exchange_wrapper2 = function(n_iter, burn_in, Y, N_aux_r, initialise, priors_list, tol){
+  
+  n = nrow(Y); d = ncol(Y);
+  
+  # Initial values ----------------------------------------------------------------------------
+  delta_current = matrix(0, ncol =d, nrow = d)
+  combs = t(combn(seq(1,d,1),2)) 
+  
+  if(initialise == 'random'){
+    lambda_current = sample(seq(0.5, 2, 0.1),d)
+    nu_current = sample(seq(0.5, 2, 0.1),d)
+    
+    while( any(lambda_current^(1/nu_current)>3) ){
+      lambda_current = sample(seq(0.5, 2, 0.1),d)
+      nu_current = sample(seq(0.5, 2, 0.1),d)
+    }
+    delta_current = matrix(0, ncol = d, nrow = d)
+    delta_current[upper.tri(delta_current)] = rnorm(choose(d,2), mean = 0, sd = 0.5)
+    omega_current = sample(seq(0.1, 2, 0.5),1)
+    
+    inits = list("lambda" = lambda_current,"nu" = nu_current,
+                 "delta" = delta_current,"omega" = omega_current)
+  } else {
+    inits= sapply(1:d, inits_marginal, Y) 
+    lambda_current = inits[1,]
+    nu_current = inits[2,]
+    omega_current = 1
+    for(i in 1:nrow(combs)){
+      delta_current[combs[i,1], combs[i,2]] = sign(cor(Y[,combs[i,1]], Y[,combs[i,2]]))
+    }
+    
+  }
+  
+  cat('Initial values: ------------------',"\n",
+      "lambda:", round(lambda_current,3), '\n',
+      'nu:', round(nu_current,3), '\n',
+      'delta:' , round(delta_current,3), '\n', 
+      'omega:', round(omega_current,3), '\n',
+      '----------------------------------', '\n')
+  
+  # Initialise chains/Rates ---------------------------------------------------------------------
+  target_ac = 0.44
+  sigma_omega = 0.05;  
+  sigma_delta = matrix(0.1, ncol = d, nrow =d) 
+  sigma_delta[lower.tri(sigma_delta,TRUE)]<- NA
+  sigma_lambda = rep(0.1,d)
+  sigma_nu = rep(0.1,d)
+  
+  accept_omega = 0;
+  accept_delta = matrix(0, ncol = d, nrow =d)
+  accept_delta[lower.tri(accept_delta,TRUE)]<- NA
+  accept_lambda = rep(0, d);
+  accept_nu = rep(0, d);
+  
+  lambda_chain = matrix(NA, nrow = burn_in+n_iter, ncol = d)
+  nu_chain = matrix(NA, nrow = burn_in+n_iter, ncol = d)
+  omega_chain = rep(NA, burn_in+n_iter); 
+  delta_chain = rep(list(matrix(NA, nrow = d, ncol = d)), burn_in+n_iter)
+  
+  # MCMC -----------------------------------------------------------------------------------------------
+  
+  # Compute ratios and save draws
+  ratio_estimates = ratios_IS_cpp(lambda_current, nu_current, omega_current, N_aux_r) 
+  ratios = ratio_estimates$ratios
+  draws_r = ratio_estimates$draws
+  
+  iter =1
+  start_time = Sys.time()
+  while(iter <= (burn_in+n_iter)){
+    
+    # ----------------- 1. Lambda Update  --------------------
+    for(dim in 1:d){
+      update_l_d = exchange_lambda2(dim, Y, lambda_current, nu_current, omega_current, delta_current, ratios, draws_r, sigma_lambda, priors_list$lambda,tol)
+      
+      lambda_current[dim] =update_l_d$lambda
+      ratios = update_l_d$ratios
+      draws_r = update_l_d$draws_r
+      
+      accept_lambda[dim] =   accept_lambda[dim] + update_l_d$accepted
+      sigma_lambda[dim] = update_propsd_double(sigma_lambda[dim],  accept_lambda[dim]/iter,  iter, target_ac)
+      
+    }
+    
+    # ----------------- 2. Nu Update ------------------------------------
+    for(dim in 1:d){
+      update_nu_d = exchange_nu2(dim, Y, lambda_current, nu_current, omega_current, delta_current, ratios, draws_r, sigma_nu, priors_list$nu, tol)
+      
+      nu_current[dim] =update_nu_d$nu
+      ratios = update_nu_d$ratios
+      draws_r = update_nu_d$draws_r
+      
+      accept_nu[dim] =   accept_nu[dim] + update_nu_d$accepted
+      sigma_nu[dim] = update_propsd_double(sigma_nu[dim],  accept_nu[dim]/iter,  iter, target_ac)
+      
+    }
+    
+    # ----------------- 3. Omega Update ------------------------------------
+    omega_update = exchange_omega2(Y, lambda_current, nu_current, omega_current, delta_current, ratios, draws_r, sigma_omega, priors_list$omega,tol)
+    omega_current = omega_update$omega
+    ratios = omega_update$ratios; 
+    
+    #Update sd
+    accept_omega = accept_omega + omega_update$accepted
+    sigma_omega <- update_propsd_double(sigma_omega,  accept_omega/iter,  iter, target_ac)
+    
+    # ----------------- 4. Update delta ---------------------------
+    for(index in 1:nrow(combs)){
+      update_d = exchange_delta2(index, combs, Y, lambda_current, nu_current, omega_current, delta_current, ratios, draws_r, sigma_delta,tol)
+      
+      delta_current = update_d$delta
+      accept_delta[combs[index,1],combs[index,2]]<- accept_delta[combs[index,1],combs[index,2]]+ update_d$accepted
+      
+      #Update sd
+      sigma_delta[combs[index,1],combs[index,2]] <- update_propsd_double(sigma_delta[combs[index,1],combs[index,2]], 
+                                                                         accept_delta[combs[index,1],combs[index,2]]/iter,
+                                                                         iter, target_ac)
+    }
+    
+    # Store -------------------------------------------------------
+    lambda_chain[iter,] = lambda_current
+    nu_chain[iter,] = nu_current
+    delta_chain[[iter]] = delta_current
+    omega_chain[iter] = omega_current
+    
+    iter = iter +1
+    write.table(paste("Iteration:", iter), file = 'Exchange_progress.txt')
+    
     if(iter %% 100==0){
       
       cat("ITERATION:", iter, "----------------------------", "\n")
@@ -794,7 +968,7 @@ exchange_delta2 = function(index, combs, Y, lambda_current, nu_current, omega_cu
 
 
 
-Exchange = function(n_iter, burn_in, Y, N_aux_r, priors_list, initialise = 'regression', tol =0.001, chains=1, ncores = 3){
+Exchange = function(n_iter, burn_in, Y, N_aux_r, priors_list, chains=1, ncores = 3, initialise = 'regression', tol =0.001){
   
  if(chains == 1 & length(priors_list$lambda)==2){
    start = Sys.time()
@@ -820,7 +994,7 @@ Exchange = function(n_iter, burn_in, Y, N_aux_r, priors_list, initialise = 'regr
    parallel::clusterEvalQ(cl, library("COMPoissonReg"))
    parallel::clusterEvalQ(cl, library("mvtnorm"))
    
-   chains = parallel::parSapply(cl, 1:chains, 
+   run = parallel::parSapply(cl, 1:chains, 
                                 function(times, n_iter, burn_in, Y, N_aux_r, initialise, priors_list, tol){
                                   Exchange_wrapper(n_iter, burn_in, Y, N_aux_r, initialise, priors_list, tol) },
                                 n_iter, burn_in, Y, N_aux_r, initialise, priors_list, tol,
@@ -839,7 +1013,7 @@ Exchange = function(n_iter, burn_in, Y, N_aux_r, priors_list, initialise = 'regr
    parallel::clusterEvalQ(cl, library("COMPoissonReg"))
    parallel::clusterEvalQ(cl, library("mvtnorm"))
    
-   chains = parallel::parSapply(cl, 1:chains, 
+   run = parallel::parSapply(cl, 1:chains, 
                                 function(times, n_iter, burn_in, Y, N_aux_r, initialise, priors_list, tol){
                                   Exchange_wrapper2(n_iter, burn_in, Y, N_aux_r, initialise, priors_list, tol) },
                                 n_iter, burn_in, Y, N_aux_r, initialise, priors_list, tol,
@@ -851,180 +1025,9 @@ Exchange = function(n_iter, burn_in, Y, N_aux_r, priors_list, initialise = 'regr
    
  }
    
-  mcmc = list("mcmc" = chains,"time" = timing)
+  mcmc = list("mcmc" = run,"time" = timing)
   return(mcmc)
   
 }
 
 
-Exchange_wrapper2 = function(n_iter, burn_in, Y, N_aux_r, initialise, priors_list, tol){
-  
-  n = nrow(Y); d = ncol(Y);
-  
-  # Initial values ----------------------------------------------------------------------------
-  delta_current = matrix(0, ncol =d, nrow = d)
-  combs = t(combn(seq(1,d,1),2)) 
-  
-  if(initialise == 'random'){
-    lambda_current = sample(seq(0.5, 2, 0.1),d)
-    nu_current = sample(seq(0.5, 2, 0.1),d)
-    
-    while( any(lambda_current^(1/nu_current)>3) ){
-      lambda_current = sample(seq(0.5, 2, 0.1),d)
-      nu_current = sample(seq(0.5, 2, 0.1),d)
-    }
-    delta_current = matrix(0, ncol = d, nrow = d)
-    delta_current[upper.tri(delta_current)] = rnorm(choose(d,2), mean = 0, sd = 0.5)
-    omega_current = sample(seq(0.1, 2, 0.5),1)
-    
-    inits = list("lambda" = lambda_current,"nu" = nu_current,
-                 "delta" = delta_current,"omega" = omega_current)
-  } else {
-    inits= sapply(1:d, inits_marginal, Y) 
-    lambda_current = inits[1,]
-    nu_current = inits[2,]
-    omega_current = 1
-    for(i in 1:nrow(combs)){
-      delta_current[combs[i,1], combs[i,2]] = sign(cor(Y[,combs[i,1]], Y[,combs[i,2]]))
-    }
-    
-  }
-  
-  cat('Initial values: ------------------',"\n",
-      "lambda:", round(lambda_current,3), '\n',
-      'nu:', round(nu_current,3), '\n',
-      'delta:' , round(delta_current,3), '\n', 
-      'omega:', round(omega_current,3), '\n',
-      '----------------------------------', '\n')
-  
-  # Initialise chains/Rates ---------------------------------------------------------------------
-  target_ac = 0.44
-  sigma_omega = 0.05;  
-  sigma_delta = matrix(0.1, ncol = d, nrow =d) 
-  sigma_delta[lower.tri(sigma_delta,TRUE)]<- NA
-  sigma_lambda = rep(0.1,d)
-  sigma_nu = rep(0.1,d)
-  
-  accept_omega = 0;
-  accept_delta = matrix(0, ncol = d, nrow =d)
-  accept_delta[lower.tri(accept_delta,TRUE)]<- NA
-  accept_lambda = rep(0, d);
-  accept_nu = rep(0, d);
-  
-  lambda_chain = matrix(NA, nrow = burn_in+n_iter, ncol = d)
-  nu_chain = matrix(NA, nrow = burn_in+n_iter, ncol = d)
-  omega_chain = rep(NA, burn_in+n_iter); 
-  delta_chain = rep(list(matrix(NA, nrow = d, ncol = d)), burn_in+n_iter)
-  
-  # MCMC -----------------------------------------------------------------------------------------------
-  
-  # Compute ratios and save draws
-  ratio_estimates = ratios_IS_cpp(lambda_current, nu_current, omega_current, N_aux_r) 
-  ratios = ratio_estimates$ratios
-  draws_r = ratio_estimates$draws
-  
-  iter =1
-  start_time = Sys.time()
-  while(iter <= (burn_in+n_iter)){
-    
-    # ----------------- 1. Lambda Update  --------------------
-    for(dim in 1:d){
-      update_l_d = exchange_lambda2(dim, Y, lambda_current, nu_current, omega_current, delta_current, ratios, draws_r, sigma_lambda, priors_list$lambda,tol)
-      
-      lambda_current[dim] =update_l_d$lambda
-      ratios = update_l_d$ratios
-      draws_r = update_l_d$draws_r
-      
-      accept_lambda[dim] =   accept_lambda[dim] + update_l_d$accepted
-      sigma_lambda[dim] = update_propsd_double(sigma_lambda[dim],  accept_lambda[dim]/iter,  iter, target_ac)
-      
-    }
-    
-    # ----------------- 2. Nu Update ------------------------------------
-    for(dim in 1:d){
-      update_nu_d = exchange_nu2(dim, Y, lambda_current, nu_current, omega_current, delta_current, ratios, draws_r, sigma_nu, priors_list$nu, tol)
-      
-      nu_current[dim] =update_nu_d$nu
-      ratios = update_nu_d$ratios
-      draws_r = update_nu_d$draws_r
-      
-      accept_nu[dim] =   accept_nu[dim] + update_nu_d$accepted
-      sigma_nu[dim] = update_propsd_double(sigma_nu[dim],  accept_nu[dim]/iter,  iter, target_ac)
-      
-    }
-    
-    # ----------------- 3. Omega Update ------------------------------------
-    omega_update = exchange_omega2(Y, lambda_current, nu_current, omega_current, delta_current, ratios, draws_r, sigma_omega, priors_list$omega,tol)
-    omega_current = omega_update$omega
-    ratios = omega_update$ratios; 
-    
-    #Update sd
-    accept_omega = accept_omega + omega_update$accepted
-    sigma_omega <- update_propsd_double(sigma_omega,  accept_omega/iter,  iter, target_ac)
-    
-    # ----------------- 4. Update delta ---------------------------
-    for(index in 1:nrow(combs)){
-      update_d = exchange_delta2(index, combs, Y, lambda_current, nu_current, omega_current, delta_current, ratios, draws_r, sigma_delta,tol)
-      
-      delta_current = update_d$delta
-      accept_delta[combs[index,1],combs[index,2]]<- accept_delta[combs[index,1],combs[index,2]]+ update_d$accepted
-      
-      #Update sd
-      sigma_delta[combs[index,1],combs[index,2]] <- update_propsd_double(sigma_delta[combs[index,1],combs[index,2]], 
-                                                                         accept_delta[combs[index,1],combs[index,2]]/iter,
-                                                                         iter, target_ac)
-    }
-    
-    # Store -------------------------------------------------------
-    lambda_chain[iter,] = lambda_current
-    nu_chain[iter,] = nu_current
-    delta_chain[[iter]] = delta_current
-    omega_chain[iter] = omega_current
-    
-    iter = iter +1
-    
-    if(iter %% 100==0){
-      
-      cat("ITERATION:", iter, "----------------------------", "\n")
-      
-      cat("Lambda report  --------------------------------:","\n",
-          "Accepted lambda", round(accept_lambda/iter,3),"\n",
-          "Current lambda:", round(lambda_current,3), "\n",
-          
-          "Nu report ---------------------------------------:","\n",
-          "Accepted nu", round(accept_nu/iter,3),"\n",
-          "Current nu", round(nu_current,3),"\n",
-          
-          "KERNEL --------------------------------------------:","\n",
-          "Omega accepted", round(accept_omega/iter,3),"\n",
-          "Current omega:", round(omega_current,3), "\n",
-          "Sigma omega:", round(sigma_omega,3), "\n",
-          
-          "Delta accepted",  round(accept_delta/iter,3),"\n",
-          "Current delta:", round(delta_current[1,2],3), "\n",
-          
-          "-------------------------------------------------------","\n",
-          "-------------------------------------------------------")
-    }
-    
-  }
-  end_time = Sys.time();
-  
-  # Return arguments --------------------------------------------------------------------
-  total_iter = burn_in + n_iter
-  output = list('ac_rates' = list('lambda' = accept_lambda/total_iter,
-                                  'nu' = accept_nu/total_iter,
-                                  'omega' = accept_omega/total_iter,
-                                  'delta' = accept_delta/total_iter),
-                "time" = end_time-start_time,
-                "Nr" = N_aux_r, "initial_values" = inits,
-                'proposal_parameters' = list("lambda" = sigma_lambda,
-                                             'nu' = sigma_nu,
-                                             "omega" = sigma_omega,
-                                             "delta" = sigma_delta),
-                "lambda_chain" = lambda_chain[(burn_in+1):total_iter, ],
-                "nu_chain" = nu_chain[(burn_in+1):total_iter, ],
-                "omega_chain" = omega_chain[(burn_in+1):total_iter],
-                "delta_chain" = delta_chain[(burn_in+1):total_iter])
-  return(output)
-}
