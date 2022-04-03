@@ -400,6 +400,25 @@ NumericMatrix rmcomp_T(int n, NumericVector lambda, NumericVector nu, NumericMat
 }
 
 // [[Rcpp::export]]
+NumericMatrix rmcomp(int n, NumericVector lambda, NumericVector nu, NumericMatrix delta, double omega, int N_r, int max_it = 1000, double tol = 0.001){
+  
+  int d = lambda.length();
+  
+  //Estimate the constants
+  List est_ratios =  ratios_IS_cpp(lambda, nu, omega, N_r);
+  NumericVector ratios = est_ratios["ratios"];
+  NumericMatrix Y_sample(n,d);
+  
+  int sampled =0; 
+  while(sampled < n){
+    Y_sample(sampled,_)= rmcomp_1_T(lambda, nu, delta, omega, ratios, max_it, tol);
+    sampled = sampled + 1;
+  }
+  
+  return Y_sample;
+}
+
+// [[Rcpp::export]]
 NumericMatrix rmcomp_T_given(int n, NumericVector lambda, NumericVector nu, NumericMatrix delta, double omega, NumericVector ratios, double tol){
   
   int max_it = 10000;
