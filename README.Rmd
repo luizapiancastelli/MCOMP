@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Multivariate COM-Poisson distribution: Sarmanov method and Bayesian inference"
 output: github_document
 ---
 
