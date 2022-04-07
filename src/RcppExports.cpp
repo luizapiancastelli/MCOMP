@@ -238,6 +238,24 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// rmcomp
+NumericMatrix rmcomp(int n, NumericVector lambda, NumericVector nu, NumericMatrix delta, double omega, int N_r, int max_it, double tol);
+RcppExport SEXP _multcp_rmcomp(SEXP nSEXP, SEXP lambdaSEXP, SEXP nuSEXP, SEXP deltaSEXP, SEXP omegaSEXP, SEXP N_rSEXP, SEXP max_itSEXP, SEXP tolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type lambda(lambdaSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type nu(nuSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type delta(deltaSEXP);
+    Rcpp::traits::input_parameter< double >::type omega(omegaSEXP);
+    Rcpp::traits::input_parameter< int >::type N_r(N_rSEXP);
+    Rcpp::traits::input_parameter< int >::type max_it(max_itSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    rcpp_result_gen = Rcpp::wrap(rmcomp(n, lambda, nu, delta, omega, N_r, max_it, tol));
+    return rcpp_result_gen;
+END_RCPP
+}
 // rmcomp_T_given
 NumericMatrix rmcomp_T_given(int n, NumericVector lambda, NumericVector nu, NumericMatrix delta, double omega, NumericVector ratios, double tol);
 RcppExport SEXP _multcp_rmcomp_T_given(SEXP nSEXP, SEXP lambdaSEXP, SEXP nuSEXP, SEXP deltaSEXP, SEXP omegaSEXP, SEXP ratiosSEXP, SEXP tolSEXP) {
@@ -307,6 +325,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_multcp_loglik_reg_given", (DL_FUNC) &_multcp_loglik_reg_given, 8},
     {"_multcp_kernel", (DL_FUNC) &_multcp_kernel, 4},
     {"_multcp_rmcomp_T", (DL_FUNC) &_multcp_rmcomp_T, 8},
+    {"_multcp_rmcomp", (DL_FUNC) &_multcp_rmcomp, 8},
     {"_multcp_rmcomp_T_given", (DL_FUNC) &_multcp_rmcomp_T_given, 7},
     {"_multcp_un_loglik_given", (DL_FUNC) &_multcp_un_loglik_given, 7},
     {"_multcp_exchange_cpp", (DL_FUNC) &_multcp_exchange_cpp, 7},

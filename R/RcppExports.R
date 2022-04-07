@@ -65,6 +65,10 @@ rmcomp_T <- function(n, lambda, nu, delta, omega, N_r, max_it = 1000L, tol = 0.0
     .Call(`_multcp_rmcomp_T`, n, lambda, nu, delta, omega, N_r, max_it, tol)
 }
 
+rmcomp <- function(n, lambda, nu, delta, omega, N_r, max_it = 1000L, tol = 0.001) {
+    .Call(`_multcp_rmcomp`, n, lambda, nu, delta, omega, N_r, max_it, tol)
+}
+
 rmcomp_T_given <- function(n, lambda, nu, delta, omega, ratios, tol) {
     .Call(`_multcp_rmcomp_T_given`, n, lambda, nu, delta, omega, ratios, tol)
 }
