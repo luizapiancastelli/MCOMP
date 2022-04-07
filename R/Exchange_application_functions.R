@@ -630,7 +630,7 @@ Exchange_regression_wrapper = function(burn_in, n_iter, initialise, Y, X, N_aux_
     sigma_omega <- update_propsd_double(sigma_omega,  accept_omega/iter,  iter, target_ac)
     
     # ----------------- 6. Update delta ---------------------------
-    update_delta = exchange_delta_reg(Y, X, gamma_current, nu_current, omega_current, delta_current, ratios, draws_r, sigma_delta, Y_aux_list,tol, priors_list$delta)
+    update_delta = exchange_delta_reg(Y, X, gamma_current, nu_current, omega_current, delta_current, ratios, draws_r, sigma_delta, Y_aux_list,tol)
     
     delta_current = update_delta$delta
     accept_delta = accept_delta + update_delta$accepted
