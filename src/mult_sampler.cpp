@@ -351,20 +351,14 @@ NumericVector rmcomp_1_T(NumericVector lambda, NumericVector nu, NumericMatrix d
     
     //Inverse Method for Discrete R.V.
     double u = R::runif(0.0,1.0);
-    // Rprintf( "\n Uniform sample %f :", u);
     int val = 0; 
     double lsup = unorm_pmf_cond_j(val, Y[Rcpp::Range(0, dim-2)], lambda, nu, delta, omega, ratios)/cpmf_Z[dim -1] ;
-    
-    // Rprintf( "\n Dimension is %i", dim, "\n");
-    // 
+  
     bool found = u < lsup;
     while(!found){
       
       val = val +1; 
       lsup = lsup + unorm_pmf_cond_j(val, Y[Rcpp::Range(0, dim-2)], lambda, nu, delta, omega, ratios)/cpmf_Z[dim-1];
-      
-      // Rprintf( "\n Lim Sup is %f", lsup, "\n",
-      //          "\n Current value %i", val, "\n");
       
       found = u< lsup;
       
