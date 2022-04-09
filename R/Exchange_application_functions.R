@@ -650,9 +650,8 @@ Exchange_regression_wrapper = function(burn_in, n_iter, initialise, Y, X, N_aux_
       
       current_time = Sys.time()
       
-      cat("ITERATION:", iter, "----------------------------", "\n")
-      
-      cat("REGRESSION  --------------------------------:","\n",
+      text = paste("ITERATION:", iter, "----------------------------", "\n",
+          "REGRESSION  --------------------------------:","\n",
           "Accepted gamma", round(accept_gamma/iter,3),"\n",
           "Current lambda:", round(compute_lambda(gamma_current),3), "\n",
           
@@ -672,6 +671,8 @@ Exchange_regression_wrapper = function(burn_in, n_iter, initialise, Y, X, N_aux_
           current_time-start_time, "\n",
           "-------------------------------------------------------","\n",
           "-------------------------------------------------------")
+      cat(text)
+      write.table(text, file = 'Exchange_regression_progress.txt')
       
     }
     

@@ -753,24 +753,25 @@ GIMH_wrapper2 = function(Y, burn_in, n_iter, N_aux_r, N_aux_z, initialise, prior
     
     maxloglik = max(max_ll, sum(loglik_chain[iter,]))
     iter = iter +1
-    write.table(paste("Iteration:", iter), file = 'GIMH_progress.txt')
     
     if(iter %% 100==0){
-      cat("ITERATION:", iter, "----------------------------", "\n",
-          
-          "Marginal report ---------:","\n",
-          "Accepted", round(accept_marginal/iter,3),"\n",
-          "Current lambda:", round(lambda_current,3), "\n",
-          "Current nu:", round(nu_current,3), "\n",
-          
-          "Omega report ---------:","\n",
-          "Accepted", round(accept_omega/iter,3),"\n",
-          "Current:", round(omega_current,3), "\n",
-          
-          "Delta report ---------:","\n",
-          "Accepted",  round(accept_delta/iter,3),"\n",
-          "Current:", round(c(delta_current[upper.tri(delta_current)]),3), "\n",
-          "--------------------------------------------------")
+      text = paste("ITERATION:", iter, "----------------------------", "\n",
+                   
+                   "Marginal report ---------:","\n",
+                   "Accepted", round(accept_marginal/iter,3),"\n",
+                   "Current lambda:", round(lambda_current,3), "\n",
+                   "Current nu:", round(nu_current,3), "\n",
+                   
+                   "Omega report ---------:","\n",
+                   "Accepted", round(accept_omega/iter,3),"\n",
+                   "Current:", round(omega_current,3), "\n",
+                   
+                   "Delta report ---------:","\n",
+                   "Accepted",  round(accept_delta/iter,3),"\n",
+                   "Current:", round(c(delta_current[upper.tri(delta_current)]),3), "\n",
+                   "--------------------------------------------------")
+      cat(text)
+      write.table(text, file = 'GIMH_progress.txt')
       }
   }
   end_time = Sys.time()

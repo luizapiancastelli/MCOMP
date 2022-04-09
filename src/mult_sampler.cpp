@@ -394,7 +394,7 @@ NumericMatrix rmcomp_T(int n, NumericVector lambda, NumericVector nu, NumericMat
 }
 
 // [[Rcpp::export]]
-NumericMatrix rmcomp(int n, NumericVector lambda, NumericVector nu, NumericMatrix delta, double omega, int N_r, int max_it = 1000, double tol = 0.001){
+NumericMatrix rmcomp(int n, NumericVector lambda, NumericVector nu, NumericMatrix delta, double omega, int N_r, int max_it = 10000, double tol = 0.001){
   
   int d = lambda.length();
   

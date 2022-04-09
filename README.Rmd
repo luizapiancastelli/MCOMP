@@ -53,6 +53,8 @@ priors_list = list('lambda' = list('sd' = 100),
                    'nu' = list('sd' = 100),
                    'omega' = list('sd' = 5))
 
+#Progress is printed to the console if single chain, for multiple chains refer to a .txt file that is saved
+#to the working directory every 100 iterations
 run_gimh = GIMH(Y_c1, burn_in, n_iter, N_aux_r, N_aux_z, priors_list, chains = 2, ncores = 2)
 
 names(run_gimh) #Returns a list with timing and raw MCMC object

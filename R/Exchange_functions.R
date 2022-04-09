@@ -339,9 +339,8 @@ Exchange_wrapper2 = function(n_iter, burn_in, Y, N_aux_r, initialise, priors_lis
     
     if(iter %% 100==0){
       
-      cat("ITERATION:", iter, "----------------------------", "\n")
-      
-      cat("Lambda report  --------------------------------:","\n",
+      text = paste("ITERATION:", iter, "----------------------------", "\n",
+          "Lambda report  --------------------------------:","\n",
           "Accepted lambda", round(accept_lambda/iter,3),"\n",
           "Current lambda:", round(lambda_current,3), "\n",
           
@@ -359,6 +358,8 @@ Exchange_wrapper2 = function(n_iter, burn_in, Y, N_aux_r, initialise, priors_lis
           
           "-------------------------------------------------------","\n",
           "-------------------------------------------------------")
+      cat(text)
+      write.table(text, file = 'Exchange_progress.txt')
     }
     
   }

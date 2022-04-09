@@ -41,16 +41,16 @@ Y = rmcomp(n, lambda, nu, delta, omega, N_r)
 colMeans(Y)
 ```
 
-    ## [1] 1.46 1.56 0.49
+    ## [1] 1.51 1.61 0.27
 
 ``` r
 cor(Y)
 ```
 
     ##           [,1]      [,2]      [,3]
-    ## [1,] 1.0000000 0.2663187 0.1595474
-    ## [2,] 0.2663187 1.0000000 0.1755069
-    ## [3,] 0.1595474 0.1755069 1.0000000
+    ## [1,] 1.0000000 0.2086069 0.1177070
+    ## [2,] 0.2086069 1.0000000 0.3019776
+    ## [3,] 0.1177070 0.3019776 1.0000000
 
 ### GIMH
 
@@ -80,6 +80,8 @@ priors_list = list('lambda' = list('sd' = 100),
                    'nu' = list('sd' = 100),
                    'omega' = list('sd' = 5))
 
+#Progress is printed to the console if single chain, for multiple chains refer to a .txt file that is saved
+#to the working directory every 100 iterations
 run_gimh = GIMH(Y_c1, burn_in, n_iter, N_aux_r, N_aux_z, priors_list, chains = 2, ncores = 2)
 
 names(run_gimh) #Returns a list with timing and raw MCMC object
